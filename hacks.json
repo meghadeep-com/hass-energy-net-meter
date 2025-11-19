@@ -1,6 +1,5 @@
 
 {
   "name": "Roy's Net Meter Integration",
-  "iot_class": "Local Polling",
   "render_readme": "true"
 }
