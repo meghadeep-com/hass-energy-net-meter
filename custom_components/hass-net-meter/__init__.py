@@ -1,4 +1,4 @@
-"""The AMASTech integration."""
+"""The Roy's Net Meter integration."""
 from __future__ import annotations
 import logging
 

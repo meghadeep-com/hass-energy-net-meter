@@ -1,4 +1,4 @@
-"""Support for AMASTech Sensors."""
+"""Support for Roy's Net Meter Sensors."""
 from __future__ import annotations
 
 from typing import Any
@@ -26,7 +26,7 @@ from . import RoysNetMeterEntity
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up AMAS Tech Sensors."""
+    """Set up Roy's Net Meter Sensors."""
     name = entry.data[CONF_NAME]
     data = hass.data[DOMAIN][entry.entry_id]
     sensors = [
@@ -43,7 +43,7 @@ async def async_setup_entry(
 
 
 class RoysNetMeterSensor(RoysNetMeterEntity, SensorEntity):
-    """Representation of a AMAS sensor."""
+    """Representation of a Roy's Net Meter sensor."""
 
     entity_description: RoysNetMeterSensorEntityDescription
 

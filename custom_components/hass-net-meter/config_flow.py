@@ -1,4 +1,4 @@
-"""Config flow for amastech integration."""
+"""Config flow for Roy's Net Meter integration."""
 from __future__ import annotations
 
 from typing import Any
