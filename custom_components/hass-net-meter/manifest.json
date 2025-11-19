@@ -4,10 +4,6 @@
   "config_flow": true,
   "documentation": "https://github.com/meghadeep-com/hass-energy-net-meter/blob/main/README.md",
   "requirements": [],
-  "integration_type": "hub",
-  "ssdp": [],
-  "zeroconf": [],
-  "homekit": {},
   "dependencies": [],
   "codeowners": [
     "@meghadeep-com"
