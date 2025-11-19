@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Final
 from dataclasses import dataclass
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
-import logging
+import logging, asyncio
 import aiohttp
 import async_timeout
 from datetime import timedelta, datetime
@@ -30,19 +30,19 @@ FLOW_POWER_ENTITY: Final = 'flow_power_entity'
 FLOW_ENERGY_ENTITY: Final = 'flow_energy_entity'
 GEN_POWER_ENTITY: Final = 'gen_power_entity'
 GEN_ENERGY_ENTITY: Final = 'gen_energy_entity'
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=1)
+MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=0.5)
 
 def parse_sensor_state(state):
     """Parse the state of a sensor into open/closed/unavailable/unknown."""
     if not state or not state.state:
-        return STATE_UNAVAILABLE
+        raise ConfigEntryNotReady
     elif state.state == STATE_UNAVAILABLE:
-        return STATE_UNAVAILABLE
+        raise ConfigEntryNotReady
     else:
         try:
             return float(state.state)
         except:
-            return STATE_UNKNOWN
+            raise ConfigEntryNotReady
 
 class RoysNetMeter:
     """Roy's Net Meter class to check configuration and get related entity info.
@@ -95,20 +95,6 @@ class RoysNetMeter:
         """Test if we can get current states."""
         try:
             if self.hass.states.get(self.gen_amp_entity) and self.hass.states.get(self.con_amp_entity) and self.hass.states.get(self.flow_power_entity) and self.hass.states.get(self.flow_energy_entity) and self.hass.states.get(self.gen_power_entity) and self.hass.states.get(self.gen_energy_entity):
-                try:
-                    self.event_listener = [async_track_state_change_event(self.hass, [self.gen_amp_entity, self.con_amp_entity], self.perform_calculations)]
-                except:
-                    try:
-                        self.event_listener = [async_track_template_result(self.hass, [self.gen_amp_entity, self.con_amp_entity], self.perform_calculations)]
-                    except:
-                        try:
-                            self.event_listener = [async_track_template_result(self.hass, [self.gen_amp_entity], self.perform_calculations), async_track_state_change_event(self.hass, [self.con_amp_entity], self.perform_calculations)]
-                        except:
-                            try:
-                                self.event_listener = [async_track_template_result(self.hass, [self.con_amp_entity], self.perform_calculations), async_track_state_change_event(self.hass, [self.gen_amp_entity], self.perform_calculations)]
-                            except Exception as e:
-                                _LOGGER.fatal("Failed: %s", str(e))
-                                raise ConfigEntryNotReady
 
                 gen_amp = parse_sensor_state(self.hass.states.get(self.gen_amp_entity))
                 con_amp = parse_sensor_state(self.hass.states.get(self.con_amp_entity))
@@ -125,7 +111,7 @@ class RoysNetMeter:
             _LOGGER.fatal("Failed: %s", str(e))
             raise ConfigEntryNotReady
         
-    async def perform_calculations(self, event) -> None:
+    async def perform_calculations(self) -> None:
         """Perform calculations to store new states"""
         gen_amp = parse_sensor_state(self.hass.states.get(self.gen_amp_entity))
         con_amp = parse_sensor_state(self.hass.states.get(self.con_amp_entity))
@@ -146,6 +132,8 @@ class RoysNetMeter:
                 self.new_state['sensors']['consumption_power'] = gen_power + flow_power
                 self.new_state['sensors']['import_power'] = flow_power
                 self.new_state['sensors']['export_power'] = 0
+                # Calculate energy
+                # Check if flow sign is changing
 
 @dataclass
 class RoysNetMeterSensorEntityDescription(SensorEntityDescription):

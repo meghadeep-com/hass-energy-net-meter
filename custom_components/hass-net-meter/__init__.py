@@ -102,11 +102,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """Fetch data from events endpoint.
 
         """
-        if api.event_listener:
-            for i in api.event_listener:
-                i()
-        else:
-            raise ConfigEntryNotReady
+        await api.perform_calculations()
 
 
     coordinator = DataUpdateCoordinator(
