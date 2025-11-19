@@ -1,0 +1,17 @@
+{
+  "domain": "roys-net-meter",
+  "name": "Roy's Net Meter",
+  "config_flow": true,
+  "documentation": "https://github.com/meghadeep-com/hass-energy-net-meter/blob/main/README.md",
+  "requirements": [],
+  "integration_type": "hub",
+  "ssdp": [],
+  "zeroconf": [],
+  "homekit": {},
+  "dependencies": [],
+  "codeowners": [
+    "@meghadeep-com"
+  ],
+  "iot_class": "local_push",
+  "version": "0.2.1"
+}
