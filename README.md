@@ -11,7 +11,13 @@ This is a very niche integration that is applicable only to a handful of users. 
 - You have another sensor that measures your consumption current, i.e. the ampereage of the main line that enters your home.
 - You have generation power data, generated energy data, and the AC amereage of your generation, i.e., the AC amereage of your inverter output.
 
+## Why don't you calculate consumption directly, if you already have a CT clamp?
+
+- CT clamps can be inaccurate even after calibration. And reducing that calibration error needs a lot of trial and error that I don't want to spend time on.
+- CT clamps (and a votlmeter) can only measure total apparent energy use, but I only get billed for my real energy useage. This is why I also measure my kVarh flow through my meter. Using the Var, and kVarh data will give me my real energy use using CT clamps, but I still would need to calibrate it properly for accuracy.
+- By delgating almost all calculations to the official meter, and using the CT clamp to measure only the ampereage of your main line has the benefit of increased accuracy without much calibration work. The only time this calculation will introduce errors is when your solar generation ramps up or down near your baseload consumption, which for a normal household means small inaccuracies only twice a day, not lasting more than 5 minutes in total.
+
 ## How to set it up:
 
 - This should be working with HACS, but it's not, so I have set it up by copying the files over in the custom_components directory of my Home Assistant integration. Please create a PR if you want it to be supported with HACS, otherwise this workflow works for my personal needs.
-- Enter the entity IDs that this integration asks for.
+- Enter the entity IDs that this integration asks for. The variable names for those entities should be self-explanatory, but please feel to create an issue if you think it can use some improvements.
