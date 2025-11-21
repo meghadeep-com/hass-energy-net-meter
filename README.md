@@ -19,5 +19,5 @@ This is a very niche integration that is applicable only to a handful of users. 
 
 ## How to set it up:
 
-- This should be working with HACS, but it's not, so I have set it up by copying the files over in the custom_components directory of my Home Assistant integration. Please create a PR if you want it to be supported with HACS, otherwise this workflow works for my personal needs.
-- Enter the entity IDs that this integration asks for. The variable names for those entities should be self-explanatory, but please feel to create an issue if you think it can use some improvements.
+- This should be working with HACS, but it's not, so I have set it up by copying the files over in the custom_components directory of my Home Assistant installation. Please create a PR if you want it to be supported with HACS, otherwise this workflow works for my personal needs.
+- Enter the entity IDs that this integration asks for. The variable names for those entities should be self-explanatory, but please feel free to create an issue if you think it can use some improvements.
