@@ -1,6 +1,10 @@
 # Roy's Net Meter Home Assistant Integration
 
----
+----
+
+IT MIGHT BE POSSIBLE TO REPLACE THIS INTEGRATION WITH TEMPLATE SENSORS, I'M LOOKING INTO THAT POSSIBILITY, BUT IF YOU HAVE IDEAS, PLEASE FEEL FREE TO CONTRIBUTE!
+
+----
 
 This is a very niche integration that is applicable only to a handful of users. Since I developed it primarily for my personal use, it uses a lot of assumptions that may not be suitable for any other users.
 
