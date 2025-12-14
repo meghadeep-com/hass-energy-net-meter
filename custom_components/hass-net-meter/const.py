@@ -140,6 +140,8 @@ class RoysNetMeter:
                     self.transient_state['energy']['flow'] = 0
                     self.old_state['energy']['consumption'] = self.new_state['sensors']['consumption_energy']
                 self.new_state['sensors']['export_energy'] = self.old_state['energy']['export'] + (flow_energy - self.old_state['energy']['flow'])
+                if self.new_state['sensors']['export_energy'] < 0:
+                    _LOGGER.warning('Old export: ' + str(self.old_state['energy']['export']) + 'New flow energy: ' + str(flow_energy) + ', Old flow energy: ' + str(flow_energy))
                 self.old_state['energy']['export'] = self.new_state['sensors']['export_energy']
                 self.old_state['energy']['flow'] = flow_energy
                 self.old_state['energy']['generation'] = gen_energy
