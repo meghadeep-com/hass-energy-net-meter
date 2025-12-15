@@ -14,7 +14,7 @@ from homeassistant.const import (
 )
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 
 from .const import (
     DOMAIN, 
@@ -79,7 +79,7 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
                 },
                 )
             else:
-                raise ConfigEntryAuthFailed
+                raise ConfigEntryNotReady
 
         user_input = user_input or {}
         return self.async_show_form(
