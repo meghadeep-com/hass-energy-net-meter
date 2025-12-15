@@ -96,7 +96,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     api = RoysNetMeter(gen_amp_entity, con_amp_entity, flow_power_entity, flow_energy_entity, gen_power_entity, gen_energy_entity, hass)
     if await api.authenticate():
         hass.config_entries.async_update_entry(entry, unique_id=('roys-net-meter'))
-    else: raise ConfigEntryAuthFailed
+    else: raise ConfigEntryNotReady
     
     async def async_update_data() -> None:
         """Fetch data from events endpoint.

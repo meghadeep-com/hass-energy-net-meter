@@ -79,7 +79,7 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
                 },
                 )
             else:
-                raise ConfigEntryNotReady
+                raise ConfigEntryAuthFailed
 
         user_input = user_input or {}
         return self.async_show_form(
