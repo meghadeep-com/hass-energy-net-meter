@@ -86,6 +86,8 @@ class RoysNetMeter:
         self.transient_state['energy']['flow'] = 0
         self.transient_state['energy']['generation'] = 0
         self.transient_state['energy']['consumption'] = 0
+        self.transient_state['energy']['import'] = 0
+        self.transient_state['energy']['export'] = 0
         self.new_state['power'] = {}
         self.new_state['energy'] = {}
         self.new_state['power']['flow'] = 0
@@ -137,12 +139,13 @@ class RoysNetMeter:
                     self.transient_state['energy']['flow'] = self.transient_state['energy']['flow'] - (flow_energy - self.old_state['energy']['flow'])
                 else:
                     self.new_state['sensors']['consumption_energy'] = self.old_state['energy']['consumption'] + ((gen_energy - self.old_state['energy']['generation']) - (flow_energy - self.old_state['energy']['flow'])) + self.transient_state['energy']['flow']
+                    self.new_state['sensors']['export_energy'] = self.old_state['energy']['export'] + (flow_energy - self.old_state['energy']['flow'] - self.transient_state['energy']['flow'])
                     self.transient_state['energy']['flow'] = 0
                     self.old_state['energy']['consumption'] = self.new_state['sensors']['consumption_energy']
-                self.new_state['sensors']['export_energy'] = self.old_state['energy']['export'] + (flow_energy - self.old_state['energy']['flow'])
+                    self.old_state['energy']['export'] = self.new_state['sensors']['export_energy']
                 if self.new_state['sensors']['export_energy'] < 0:
                     _LOGGER.warning('Old export: ' + str(self.old_state['energy']['export']) + 'New flow energy: ' + str(flow_energy) + ', Old flow energy: ' + str(flow_energy))
-                self.old_state['energy']['export'] = self.new_state['sensors']['export_energy']
+                
                 self.old_state['energy']['flow'] = flow_energy
                 self.old_state['energy']['generation'] = gen_energy
             # Consumption is more than generation
@@ -164,7 +167,9 @@ class RoysNetMeter:
                 else:
                     if abs((gen_energy - self.old_state['energy']['generation']) + (flow_energy - self.old_state['energy']['flow'])) > abs(self.transient_state['energy']['flow']):
                         self.new_state['sensors']['consumption_energy'] = self.old_state['energy']['consumption'] + (gen_energy - self.old_state['energy']['generation']) + (flow_energy - self.old_state['energy']['flow']) + self.transient_state['energy']['flow']
+                        self.new_state['sensors']['export_energy'] = self.old_state['energy']['export'] - self.transient_state['energy']['flow']
                         self.transient_state['energy']['flow'] = 0
+                        self.old_state['energy']['export'] = self.new_state['sensors']['export_energy']
                 self.new_state['sensors']['import_energy'] = self.old_state['energy']['import'] + (flow_energy - self.old_state['energy']['flow'])
                 self.old_state['energy']['consumption'] = self.new_state['sensors']['consumption_energy']
                 self.old_state['energy']['import'] = self.new_state['sensors']['import_energy']
