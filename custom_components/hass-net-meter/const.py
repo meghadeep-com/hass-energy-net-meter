@@ -78,24 +78,8 @@ class RoysNetMeter:
         self.old_state['energy']['export'] = 0
         self.stale_state['energy'] = {}
         self.stale_state['energy']['flow'] = 0
-        self.transient_state['power'] = {}
         self.transient_state['energy'] = {}
-        self.transient_state['power']['flow'] = 0
-        self.transient_state['power']['generation'] = 0
-        self.transient_state['power']['consumption'] = 0
         self.transient_state['energy']['flow'] = 0
-        self.transient_state['energy']['generation'] = 0
-        self.transient_state['energy']['consumption'] = 0
-        self.transient_state['energy']['import'] = 0
-        self.transient_state['energy']['export'] = 0
-        self.new_state['power'] = {}
-        self.new_state['energy'] = {}
-        self.new_state['power']['flow'] = 0
-        self.new_state['power']['generation'] = 0
-        self.new_state['power']['consumption'] = 0
-        self.new_state['energy']['flow'] = 0
-        self.new_state['energy']['generation'] = 0
-        self.new_state['energy']['consumption'] = 0
         self.new_state['sensors'] = {}
         self.new_state['sensors']['consumption_energy'] = 0
         self.new_state['sensors']['import_energy'] = 0
@@ -103,6 +87,7 @@ class RoysNetMeter:
         self.new_state['sensors']['consumption_power'] = 0
         self.new_state['sensors']['import_power'] = 0
         self.new_state['sensors']['export_power'] = 0
+        self.new_state['sensors']['grid_power'] = 0
 
     async def authenticate(self) -> bool:
         """Test if we can get current states."""
@@ -129,6 +114,7 @@ class RoysNetMeter:
                 self.new_state['sensors']['consumption_power'] = gen_power + flow_power
                 self.new_state['sensors']['import_power'] = 0
                 self.new_state['sensors']['export_power'] = -1*flow_power
+                self.new_state['sensors']['grid_power'] = flow_power
                 self.old_state['power']['consumption'] = self.new_state['sensors']['consumption_power']
                 self.old_state['power']['generation'] = gen_power
                 self.old_state['power']['flow'] = flow_power
@@ -156,6 +142,7 @@ class RoysNetMeter:
                 self.new_state['sensors']['consumption_power'] = gen_power + flow_power
                 self.new_state['sensors']['import_power'] = flow_power
                 self.new_state['sensors']['export_power'] = 0
+                self.new_state['sensors']['grid_power'] = flow_power
                 self.old_state['power']['consumption'] = self.new_state['sensors']['consumption_power']
                 self.old_state['power']['generation'] = gen_power
                 self.old_state['power']['flow'] = flow_power
@@ -191,6 +178,7 @@ SENSOR_TYPES: tuple[RoysNetMeterSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.WATT,
         icon="mdi:flash-outline",
         device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT
     ),
     RoysNetMeterSensorEntityDescription(
         key="consumption_energy",
@@ -201,11 +189,20 @@ SENSOR_TYPES: tuple[RoysNetMeterSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING
     ),
     RoysNetMeterSensorEntityDescription(
+        key="grid_power",
+        name="Grid Power",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        icon="mdi:flash-outline",
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT
+    ),
+    RoysNetMeterSensorEntityDescription(
         key="export_power",
         name="Export Power",
         native_unit_of_measurement=UnitOfPower.WATT,
         icon="mdi:flash",
         device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT
     ),
     RoysNetMeterSensorEntityDescription(
         key="export_energy",
@@ -221,6 +218,7 @@ SENSOR_TYPES: tuple[RoysNetMeterSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.WATT,
         icon="mdi:flash-outline",
         device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT
     ),
     RoysNetMeterSensorEntityDescription(
         key="import_energy",
