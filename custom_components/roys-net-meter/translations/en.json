@@ -1,0 +1,31 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Roy's Net Meter",
+        "description": "Select the entities from your net meter, CT clamps, and inverter that this integration needs. See the README for the full explanation of each.",
+        "data": {
+          "name": "Name",
+          "gen_amp_entity": "Generation current sensor",
+          "con_amp_entity": "Consumption current sensor",
+          "flow_power_entity": "Net meter power flow sensor",
+          "flow_energy_entity": "Net meter energy flow sensor",
+          "gen_power_entity": "Generation power sensor",
+          "gen_energy_entity": "Generation energy sensor"
+        },
+        "data_description": {
+          "name": "A friendly name for this net meter setup.",
+          "gen_amp_entity": "The sensor reporting your solar inverter's AC output current (A). Compared against the consumption current sensor to decide whether you're importing or exporting.",
+          "con_amp_entity": "The sensor reporting the amperage (A) of your home's main incoming line, typically from a CT clamp.",
+          "flow_power_entity": "The net real power (W) reported by your net meter, e.g. an ESPHome Home Assistant Glow device.",
+          "flow_energy_entity": "The net real energy (kWh) reported by the same net meter.",
+          "gen_power_entity": "Your solar inverter's AC output power (W).",
+          "gen_energy_entity": "Your solar inverter's total generated energy (kWh)."
+        }
+      }
+    },
+    "error": {
+      "unknown": "Could not read one or more of the selected entities. Make sure they all exist and have a value, then try again."
+    }
+  }
+}

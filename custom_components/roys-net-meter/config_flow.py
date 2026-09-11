@@ -12,6 +12,7 @@ from homeassistant.const import (
     CONF_HOST,
     CONF_NAME
 )
+from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
@@ -29,6 +30,10 @@ from .const import (
     FLOW_ENERGY_ENTITY,
     GEN_POWER_ENTITY,
     GEN_ENERGY_ENTITY
+)
+
+SENSOR_SELECTOR = selector.EntitySelector(
+    selector.EntitySelectorConfig(domain="sensor")
 )
 
 
@@ -64,7 +69,12 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
             
             hub = RoysNetMeter(gen_amp_entity, con_amp_entity, flow_power_entity, flow_energy_entity, gen_power_entity, gen_energy_entity, self.hass)
 
-            if await hub.authenticate():
+            try:
+                authenticated = await hub.authenticate()
+            except ConfigEntryNotReady:
+                authenticated = False
+
+            if authenticated:
                 self._config[CONF_NAME] = name
                 self._config[GEN_AMP_ENTITY] = gen_amp_entity
                 self._config[CON_AMP_ENTITY] = con_amp_entity
@@ -79,7 +89,7 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
                 },
                 )
             else:
-                raise ConfigEntryAuthFailed
+                errors["base"] = "unknown"
 
         user_input = user_input or {}
         return self.async_show_form(
@@ -91,28 +101,28 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
                     ): str,
                     vol.Required(
                         GEN_AMP_ENTITY,
-                        default=user_input.get(GEN_AMP_ENTITY, ''),
-                    ): str,
+                        default=user_input.get(GEN_AMP_ENTITY, vol.UNDEFINED),
+                    ): SENSOR_SELECTOR,
                     vol.Required(
                         CON_AMP_ENTITY,
-                        default=user_input.get(CON_AMP_ENTITY, ''),
-                    ): str,
+                        default=user_input.get(CON_AMP_ENTITY, vol.UNDEFINED),
+                    ): SENSOR_SELECTOR,
                     vol.Required(
                         FLOW_POWER_ENTITY,
-                        default=user_input.get(FLOW_POWER_ENTITY, ''),
-                    ): str,
+                        default=user_input.get(FLOW_POWER_ENTITY, vol.UNDEFINED),
+                    ): SENSOR_SELECTOR,
                     vol.Required(
                         FLOW_ENERGY_ENTITY,
-                        default=user_input.get(FLOW_ENERGY_ENTITY, ''),
-                    ): str,
+                        default=user_input.get(FLOW_ENERGY_ENTITY, vol.UNDEFINED),
+                    ): SENSOR_SELECTOR,
                     vol.Required(
                         GEN_POWER_ENTITY,
-                        default=user_input.get(GEN_POWER_ENTITY, ''),
-                    ): str,
+                        default=user_input.get(GEN_POWER_ENTITY, vol.UNDEFINED),
+                    ): SENSOR_SELECTOR,
                     vol.Required(
                         GEN_ENERGY_ENTITY,
-                        default=user_input.get(GEN_ENERGY_ENTITY, ''),
-                    ): str,
+                        default=user_input.get(GEN_ENERGY_ENTITY, vol.UNDEFINED),
+                    ): SENSOR_SELECTOR,
                 }
             ),
             errors=errors,
