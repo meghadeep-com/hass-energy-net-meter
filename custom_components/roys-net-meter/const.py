@@ -190,6 +190,7 @@ class RoysConsumptionMeter:
         self.old_state['energy'] = {}
         self.old_state['energy']['consumption'] = 0
         self.old_state['energy']['generation'] = 0
+        self.old_state['energy']['consumption_total'] = 0
         self.old_state['energy']['import'] = 0
         self.old_state['energy']['export'] = 0
 
@@ -207,6 +208,10 @@ class RoysConsumptionMeter:
         """Test if we can get current states."""
         try:
             if self.hass.states.get(self.con_power_entity) and self.hass.states.get(self.con_energy_entity) and self.hass.states.get(self.gen_power_entity) and self.hass.states.get(self.gen_energy_entity):
+                # Snapshot the meters' absolute readings as a baseline, so
+                # consumption_energy/import_energy/export_energy accumulate
+                # from zero from this point on, instead of jumping straight
+                # to the meters' lifetime totals.
                 self.old_state['energy']['consumption'] = parse_sensor_state(self.hass.states.get(self.con_energy_entity))
                 self.old_state['energy']['generation'] = parse_sensor_state(self.hass.states.get(self.gen_energy_entity))
                 return True
@@ -233,6 +238,7 @@ class RoysConsumptionMeter:
         delta_generation = gen_energy - self.old_state['energy']['generation']
         net_delta = delta_consumption - delta_generation
 
+        self.old_state['energy']['consumption_total'] += delta_consumption
         if net_delta > 0:
             self.old_state['energy']['import'] += net_delta
         else:
@@ -241,7 +247,7 @@ class RoysConsumptionMeter:
         self.old_state['energy']['consumption'] = con_energy
         self.old_state['energy']['generation'] = gen_energy
 
-        self.new_state['sensors']['consumption_energy'] = con_energy
+        self.new_state['sensors']['consumption_energy'] = self.old_state['energy']['consumption_total']
         self.new_state['sensors']['import_energy'] = self.old_state['energy']['import']
         self.new_state['sensors']['export_energy'] = self.old_state['energy']['export']
 

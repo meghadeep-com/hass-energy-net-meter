@@ -116,7 +116,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
     if await api.authenticate():
-        hass.config_entries.async_update_entry(entry, unique_id=('roys-net-meter'))
+        if entry.unique_id is None:
+            hass.config_entries.async_update_entry(entry, unique_id=entry.entry_id)
     else: raise ConfigEntryNotReady
     
     async def async_update_data() -> None:
