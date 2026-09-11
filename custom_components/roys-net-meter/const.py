@@ -64,6 +64,7 @@ class RoysNetMeter:
         self.gen_energy_entity = gen_energy_entity
         self.hass = hass
         self.loop = hass.loop
+        self.ready = False
 
         self.event_listener = []
         self.old_state = {}
@@ -95,16 +96,22 @@ class RoysNetMeter:
         self.new_state['sensors']['grid_power'] = 0
 
     async def authenticate(self) -> bool:
-        """Test if we can get current states."""
+        """Try to read a baseline from the configured entities.
+
+        Returns False (never raises) if they don't exist or aren't ready
+        yet, so callers can retry later instead of failing outright -
+        important at Home Assistant startup, when the entities this
+        integration depends on may not have loaded yet.
+        """
+        if not (self.hass.states.get(self.gen_amp_entity) and self.hass.states.get(self.con_amp_entity) and self.hass.states.get(self.flow_power_entity) and self.hass.states.get(self.flow_energy_entity) and self.hass.states.get(self.gen_power_entity) and self.hass.states.get(self.gen_energy_entity)):
+            return False
         try:
-            if self.hass.states.get(self.gen_amp_entity) and self.hass.states.get(self.con_amp_entity) and self.hass.states.get(self.flow_power_entity) and self.hass.states.get(self.flow_energy_entity) and self.hass.states.get(self.gen_power_entity) and self.hass.states.get(self.gen_energy_entity):
-                self.old_state['energy']['generation'] = parse_sensor_state(self.hass.states.get(self.gen_energy_entity))
-                self.old_state['energy']['flow'] = parse_sensor_state(self.hass.states.get(self.flow_energy_entity))
-                self.stale_state['energy']['flow'] = self.old_state['energy']['flow']
-                return True
-        except Exception as e:
-            _LOGGER.fatal("Failed: %s", str(e))
-            raise ConfigEntryNotReady
+            self.old_state['energy']['generation'] = parse_sensor_state(self.hass.states.get(self.gen_energy_entity))
+            self.old_state['energy']['flow'] = parse_sensor_state(self.hass.states.get(self.flow_energy_entity))
+        except ConfigEntryNotReady:
+            return False
+        self.stale_state['energy']['flow'] = self.old_state['energy']['flow']
+        return True
         
     async def perform_calculations(self) -> None:
         """Perform calculations to store new states"""
@@ -185,6 +192,7 @@ class RoysConsumptionMeter:
         self.gen_energy_entity = gen_energy_entity
         self.hass = hass
         self.loop = hass.loop
+        self.ready = False
 
         self.old_state = {}
         self.old_state['energy'] = {}
@@ -205,19 +213,23 @@ class RoysConsumptionMeter:
         self.new_state['sensors']['grid_power'] = 0
 
     async def authenticate(self) -> bool:
-        """Test if we can get current states."""
+        """Try to read a baseline from the configured entities.
+
+        Returns False (never raises) if they don't exist or aren't ready
+        yet, so callers can retry later instead of failing outright.
+        """
+        if not (self.hass.states.get(self.con_power_entity) and self.hass.states.get(self.con_energy_entity) and self.hass.states.get(self.gen_power_entity) and self.hass.states.get(self.gen_energy_entity)):
+            return False
         try:
-            if self.hass.states.get(self.con_power_entity) and self.hass.states.get(self.con_energy_entity) and self.hass.states.get(self.gen_power_entity) and self.hass.states.get(self.gen_energy_entity):
-                # Snapshot the meters' absolute readings as a baseline, so
-                # consumption_energy/import_energy/export_energy accumulate
-                # from zero from this point on, instead of jumping straight
-                # to the meters' lifetime totals.
-                self.old_state['energy']['consumption'] = parse_sensor_state(self.hass.states.get(self.con_energy_entity))
-                self.old_state['energy']['generation'] = parse_sensor_state(self.hass.states.get(self.gen_energy_entity))
-                return True
-        except Exception as e:
-            _LOGGER.fatal("Failed: %s", str(e))
-            raise ConfigEntryNotReady
+            # Snapshot the meters' absolute readings as a baseline, so
+            # consumption_energy/import_energy/export_energy accumulate
+            # from zero from this point on, instead of jumping straight
+            # to the meters' lifetime totals.
+            self.old_state['energy']['consumption'] = parse_sensor_state(self.hass.states.get(self.con_energy_entity))
+            self.old_state['energy']['generation'] = parse_sensor_state(self.hass.states.get(self.gen_energy_entity))
+        except ConfigEntryNotReady:
+            return False
+        return True
 
     async def perform_calculations(self) -> None:
         """Perform calculations to store new states."""

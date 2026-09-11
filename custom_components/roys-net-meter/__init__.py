@@ -115,16 +115,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass,
         )
 
-    if await api.authenticate():
-        if entry.unique_id is None:
-            hass.config_entries.async_update_entry(entry, unique_id=entry.entry_id)
-    else: raise ConfigEntryNotReady
-    
+    if entry.unique_id is None:
+        hass.config_entries.async_update_entry(entry, unique_id=entry.entry_id)
+
     async def async_update_data() -> None:
         """Fetch data from events endpoint.
 
+        The entities this integration reads from may not have loaded yet
+        (e.g. at Home Assistant startup), so this doesn't fail entry setup
+        via ConfigEntryNotReady - it just reports the update as failed and
+        lets the coordinator's own fast poll interval retry, so entities
+        recover on their own as soon as their dependencies are ready.
         """
-        await api.perform_calculations()
+        if not api.ready:
+            if not await api.authenticate():
+                raise UpdateFailed("Waiting for the configured entities to become available")
+            api.ready = True
+            return
+        try:
+            await api.perform_calculations()
+        except ConfigEntryNotReady as err:
+            raise UpdateFailed("One of the configured entities became unavailable") from err
 
 
     coordinator = DataUpdateCoordinator(
@@ -134,6 +145,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         update_method=async_update_data,
         update_interval=MIN_TIME_BETWEEN_UPDATES,
     )
+
+    await coordinator.async_refresh()
 
     hass.data[DOMAIN][entry.entry_id] = {
         DATA_KEY_API: api,

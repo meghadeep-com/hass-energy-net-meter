@@ -138,12 +138,7 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
                 self.hass,
             )
 
-            try:
-                authenticated = await hub.authenticate()
-            except ConfigEntryNotReady:
-                authenticated = False
-
-            if authenticated:
+            if await hub.authenticate():
                 self._config.update(user_input)
                 return self._finish(self._config)
             errors["base"] = "unknown"
@@ -198,12 +193,7 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
                 self.hass,
             )
 
-            try:
-                authenticated = await hub.authenticate()
-            except ConfigEntryNotReady:
-                authenticated = False
-
-            if authenticated:
+            if await hub.authenticate():
                 self._config.update(user_input)
                 return self._finish(self._config)
             errors["base"] = "unknown"
