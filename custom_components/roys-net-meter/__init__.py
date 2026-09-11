@@ -18,6 +18,7 @@ from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
@@ -33,7 +34,6 @@ from .const import (
     RoysConsumptionMeter,
     DATA_KEY_API,
     DATA_KEY_COORDINATOR,
-    MIN_TIME_BETWEEN_UPDATES,
     METER_TYPE,
     METER_TYPE_GRID,
     METER_TYPE_CONSUMPTION,
@@ -119,13 +119,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(entry, unique_id=entry.entry_id)
 
     async def async_update_data() -> None:
-        """Fetch data from events endpoint.
+        """Recompute from the current state of the tracked entities.
 
         The entities this integration reads from may not have loaded yet
         (e.g. at Home Assistant startup), so this doesn't fail entry setup
-        via ConfigEntryNotReady - it just reports the update as failed and
-        lets the coordinator's own fast poll interval retry, so entities
-        recover on their own as soon as their dependencies are ready.
+        via ConfigEntryNotReady - it just reports the update as failed.
+        Since updates are triggered by those same entities changing (see
+        below), this naturally recovers as soon as they become available,
+        with no polling involved.
         """
         if not api.ready:
             if not await api.authenticate():
@@ -143,7 +144,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER,
         name=name,
         update_method=async_update_data,
-        update_interval=MIN_TIME_BETWEEN_UPDATES,
+        # Push-driven, not polled: recompute only when a tracked entity
+        # actually changes (see the listener below), matching this
+        # integration's "local_push" iot_class.
+        update_interval=None,
+    )
+
+    @callback
+    def _async_tracked_entity_changed(event) -> None:
+        hass.async_create_task(coordinator.async_request_refresh())
+
+    entry.async_on_unload(
+        async_track_state_change_event(hass, api.tracked_entities, _async_tracked_entity_changed)
     )
 
     await coordinator.async_refresh()

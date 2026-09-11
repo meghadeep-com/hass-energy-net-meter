@@ -25,7 +25,6 @@ from .const import (
     RoysConsumptionMeter,
     DATA_KEY_API,
     DATA_KEY_COORDINATOR,
-    MIN_TIME_BETWEEN_UPDATES,
     METER_TYPE,
     METER_TYPE_GRID,
     METER_TYPE_CONSUMPTION,

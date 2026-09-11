@@ -8,7 +8,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 import logging, asyncio
 import aiohttp
 import async_timeout
-from datetime import timedelta, datetime
+from datetime import datetime
 from typing import Any
 from homeassistant.components.sensor import SensorEntityDescription, SensorDeviceClass, SensorStateClass
 from homeassistant.core import HomeAssistant
@@ -35,7 +35,6 @@ CON_ENERGY_ENTITY: Final = 'con_energy_entity'
 METER_TYPE: Final = 'meter_type'
 METER_TYPE_GRID: Final = 'grid'
 METER_TYPE_CONSUMPTION: Final = 'consumption'
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=0.5)
 
 def parse_sensor_state(state):
     """Parse the state of a sensor into open/closed/unavailable/unknown."""
@@ -65,6 +64,15 @@ class RoysNetMeter:
         self.hass = hass
         self.loop = hass.loop
         self.ready = False
+
+        self.tracked_entities = [
+            gen_amp_entity,
+            con_amp_entity,
+            flow_power_entity,
+            flow_energy_entity,
+            gen_power_entity,
+            gen_energy_entity,
+        ]
 
         self.event_listener = []
         self.old_state = {}
@@ -193,6 +201,13 @@ class RoysConsumptionMeter:
         self.hass = hass
         self.loop = hass.loop
         self.ready = False
+
+        self.tracked_entities = [
+            con_power_entity,
+            con_energy_entity,
+            gen_power_entity,
+            gen_energy_entity,
+        ]
 
         self.old_state = {}
         self.old_state['energy'] = {}
