@@ -13,6 +13,18 @@
           "meter_type": "A net grid meter reports the net import/export flow through your grid connection. A consumption meter (e.g. an RCBO/breaker with built-in metering) reports your home's total consumption directly."
         }
       },
+      "reconfigure": {
+        "title": "Reconfigure Roy's Net Meter",
+        "description": "Update the name or meter type for this setup. See the README for the full explanation of each option.",
+        "data": {
+          "name": "Name",
+          "meter_type": "Meter type"
+        },
+        "data_description": {
+          "name": "A friendly name for this setup.",
+          "meter_type": "A net grid meter reports the net import/export flow through your grid connection. A consumption meter (e.g. an RCBO/breaker with built-in metering) reports your home's total consumption directly."
+        }
+      },
       "grid_meter": {
         "title": "Net grid meter entities",
         "description": "Select the entities from your net meter, CT clamps, and inverter that this integration needs.",
@@ -52,6 +64,9 @@
     },
     "error": {
       "unknown": "Could not read one or more of the selected entities. Make sure they all exist and have a value, then try again."
+    },
+    "abort": {
+      "reconfigure_successful": "Reconfiguration was successful."
     }
   }
 }

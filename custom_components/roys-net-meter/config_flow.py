@@ -6,6 +6,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.config_entries import SOURCE_RECONFIGURE
 from homeassistant.const import (
     CONF_ACCESS_TOKEN,
     CONF_API_TOKEN,
@@ -66,10 +67,31 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize the config flow."""
         self._config: dict = {}
 
+    @property
+    def _reconfigure_entry(self) -> config_entries.ConfigEntry | None:
+        """Return the entry being reconfigured, if this is a reconfigure flow."""
+        if self.source == SOURCE_RECONFIGURE:
+            return self._get_reconfigure_entry()
+        return None
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle the first step: pick a name and which kind of meter to use."""
+        """Handle the first step of a fresh setup: name and meter type."""
+        return await self._async_step_meter_type(user_input, step_id="user")
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle the first step of a reconfigure: name and meter type."""
+        return await self._async_step_meter_type(user_input, step_id="reconfigure")
+
+    async def _async_step_meter_type(
+        self, user_input: dict[str, Any] | None, step_id: str
+    ) -> FlowResult:
+        """Shared logic for the name/meter-type step, for both setup and reconfigure."""
+        current = self._reconfigure_entry.data if self._reconfigure_entry else {}
+
         if user_input is not None:
             self._config[CONF_NAME] = user_input[CONF_NAME]
             self._config[METER_TYPE] = user_input[METER_TYPE]
@@ -78,24 +100,32 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_grid_meter()
 
         return self.async_show_form(
-            step_id="user",
+            step_id=step_id,
             data_schema=vol.Schema(
                 {
                     vol.Required(
-                        CONF_NAME, default=DEFAULT_NAME
+                        CONF_NAME, default=current.get(CONF_NAME, DEFAULT_NAME)
                     ): str,
                     vol.Required(
-                        METER_TYPE, default=METER_TYPE_GRID
+                        METER_TYPE, default=current.get(METER_TYPE, METER_TYPE_GRID)
                     ): METER_TYPE_SELECTOR,
                 }
             ),
         )
+
+    def _finish(self, data: dict) -> FlowResult:
+        """Create a new entry, or update+reload the one being reconfigured."""
+        reconfigure_entry = self._reconfigure_entry
+        if reconfigure_entry is not None:
+            return self.async_update_reload_and_abort(reconfigure_entry, data=data)
+        return self.async_create_entry(title=data[CONF_NAME], data=data)
 
     async def async_step_grid_meter(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle entity selection for a net grid meter setup."""
         errors = {}
+        current = self._reconfigure_entry.data if self._reconfigure_entry else {}
 
         if user_input is not None:
             hub = RoysNetMeter(
@@ -115,10 +145,7 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
 
             if authenticated:
                 self._config.update(user_input)
-                return self.async_create_entry(
-                    title=self._config[CONF_NAME],
-                    data=self._config,
-                )
+                return self._finish(self._config)
             errors["base"] = "unknown"
 
         user_input = user_input or {}
@@ -128,27 +155,27 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(
                         GEN_AMP_ENTITY,
-                        default=user_input.get(GEN_AMP_ENTITY, vol.UNDEFINED),
+                        default=user_input.get(GEN_AMP_ENTITY, current.get(GEN_AMP_ENTITY, vol.UNDEFINED)),
                     ): SENSOR_SELECTOR,
                     vol.Required(
                         CON_AMP_ENTITY,
-                        default=user_input.get(CON_AMP_ENTITY, vol.UNDEFINED),
+                        default=user_input.get(CON_AMP_ENTITY, current.get(CON_AMP_ENTITY, vol.UNDEFINED)),
                     ): SENSOR_SELECTOR,
                     vol.Required(
                         FLOW_POWER_ENTITY,
-                        default=user_input.get(FLOW_POWER_ENTITY, vol.UNDEFINED),
+                        default=user_input.get(FLOW_POWER_ENTITY, current.get(FLOW_POWER_ENTITY, vol.UNDEFINED)),
                     ): SENSOR_SELECTOR,
                     vol.Required(
                         FLOW_ENERGY_ENTITY,
-                        default=user_input.get(FLOW_ENERGY_ENTITY, vol.UNDEFINED),
+                        default=user_input.get(FLOW_ENERGY_ENTITY, current.get(FLOW_ENERGY_ENTITY, vol.UNDEFINED)),
                     ): SENSOR_SELECTOR,
                     vol.Required(
                         GEN_POWER_ENTITY,
-                        default=user_input.get(GEN_POWER_ENTITY, vol.UNDEFINED),
+                        default=user_input.get(GEN_POWER_ENTITY, current.get(GEN_POWER_ENTITY, vol.UNDEFINED)),
                     ): SENSOR_SELECTOR,
                     vol.Required(
                         GEN_ENERGY_ENTITY,
-                        default=user_input.get(GEN_ENERGY_ENTITY, vol.UNDEFINED),
+                        default=user_input.get(GEN_ENERGY_ENTITY, current.get(GEN_ENERGY_ENTITY, vol.UNDEFINED)),
                     ): SENSOR_SELECTOR,
                 }
             ),
@@ -160,6 +187,7 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Handle entity selection for a direct consumption meter setup."""
         errors = {}
+        current = self._reconfigure_entry.data if self._reconfigure_entry else {}
 
         if user_input is not None:
             hub = RoysConsumptionMeter(
@@ -177,10 +205,7 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
 
             if authenticated:
                 self._config.update(user_input)
-                return self.async_create_entry(
-                    title=self._config[CONF_NAME],
-                    data=self._config,
-                )
+                return self._finish(self._config)
             errors["base"] = "unknown"
 
         user_input = user_input or {}
@@ -190,19 +215,19 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(
                         CON_POWER_ENTITY,
-                        default=user_input.get(CON_POWER_ENTITY, vol.UNDEFINED),
+                        default=user_input.get(CON_POWER_ENTITY, current.get(CON_POWER_ENTITY, vol.UNDEFINED)),
                     ): SENSOR_SELECTOR,
                     vol.Required(
                         CON_ENERGY_ENTITY,
-                        default=user_input.get(CON_ENERGY_ENTITY, vol.UNDEFINED),
+                        default=user_input.get(CON_ENERGY_ENTITY, current.get(CON_ENERGY_ENTITY, vol.UNDEFINED)),
                     ): SENSOR_SELECTOR,
                     vol.Required(
                         GEN_POWER_ENTITY,
-                        default=user_input.get(GEN_POWER_ENTITY, vol.UNDEFINED),
+                        default=user_input.get(GEN_POWER_ENTITY, current.get(GEN_POWER_ENTITY, vol.UNDEFINED)),
                     ): SENSOR_SELECTOR,
                     vol.Required(
                         GEN_ENERGY_ENTITY,
-                        default=user_input.get(GEN_ENERGY_ENTITY, vol.UNDEFINED),
+                        default=user_input.get(GEN_ENERGY_ENTITY, current.get(GEN_ENERGY_ENTITY, vol.UNDEFINED)),
                     ): SENSOR_SELECTOR,
                 }
             ),
