@@ -27,18 +27,24 @@ from homeassistant.helpers.update_coordinator import (
 
 
 from .const import (
-    DOMAIN, 
-    DEFAULT_NAME, 
+    DOMAIN,
+    DEFAULT_NAME,
     RoysNetMeter,
+    RoysConsumptionMeter,
     DATA_KEY_API,
     DATA_KEY_COORDINATOR,
     MIN_TIME_BETWEEN_UPDATES,
+    METER_TYPE,
+    METER_TYPE_GRID,
+    METER_TYPE_CONSUMPTION,
     GEN_AMP_ENTITY,
     CON_AMP_ENTITY,
     FLOW_POWER_ENTITY,
     FLOW_ENERGY_ENTITY,
     GEN_POWER_ENTITY,
-    GEN_ENERGY_ENTITY
+    GEN_ENERGY_ENTITY,
+    CON_POWER_ENTITY,
+    CON_ENERGY_ENTITY
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -86,14 +92,29 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Roy's Net Meter from a config entry."""
 
-    gen_amp_entity = entry.data[GEN_AMP_ENTITY]
-    con_amp_entity = entry.data[CON_AMP_ENTITY]
-    flow_power_entity = entry.data[FLOW_POWER_ENTITY]
-    flow_energy_entity = entry.data[FLOW_ENERGY_ENTITY]
-    gen_power_entity = entry.data[GEN_POWER_ENTITY]
-    gen_energy_entity = entry.data[GEN_ENERGY_ENTITY]
     name = entry.data[CONF_NAME]
-    api = RoysNetMeter(gen_amp_entity, con_amp_entity, flow_power_entity, flow_energy_entity, gen_power_entity, gen_energy_entity, hass)
+    # Config entries created before meter_type existed are all grid meters.
+    meter_type = entry.data.get(METER_TYPE, METER_TYPE_GRID)
+
+    if meter_type == METER_TYPE_CONSUMPTION:
+        api = RoysConsumptionMeter(
+            entry.data[CON_POWER_ENTITY],
+            entry.data[CON_ENERGY_ENTITY],
+            entry.data[GEN_POWER_ENTITY],
+            entry.data[GEN_ENERGY_ENTITY],
+            hass,
+        )
+    else:
+        api = RoysNetMeter(
+            entry.data[GEN_AMP_ENTITY],
+            entry.data[CON_AMP_ENTITY],
+            entry.data[FLOW_POWER_ENTITY],
+            entry.data[FLOW_ENERGY_ENTITY],
+            entry.data[GEN_POWER_ENTITY],
+            entry.data[GEN_ENERGY_ENTITY],
+            hass,
+        )
+
     if await api.authenticate():
         hass.config_entries.async_update_entry(entry, unique_id=('roys-net-meter'))
     else: raise ConfigEntryNotReady

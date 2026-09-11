@@ -30,6 +30,11 @@ FLOW_POWER_ENTITY: Final = 'flow_power_entity'
 FLOW_ENERGY_ENTITY: Final = 'flow_energy_entity'
 GEN_POWER_ENTITY: Final = 'gen_power_entity'
 GEN_ENERGY_ENTITY: Final = 'gen_energy_entity'
+CON_POWER_ENTITY: Final = 'con_power_entity'
+CON_ENERGY_ENTITY: Final = 'con_energy_entity'
+METER_TYPE: Final = 'meter_type'
+METER_TYPE_GRID: Final = 'grid'
+METER_TYPE_CONSUMPTION: Final = 'consumption'
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=0.5)
 
 def parse_sensor_state(state):
@@ -162,6 +167,83 @@ class RoysNetMeter:
                 self.old_state['energy']['import'] = self.new_state['sensors']['import_energy']
                 self.old_state['energy']['flow'] = flow_energy
                 self.old_state['energy']['generation'] = gen_energy
+
+
+class RoysConsumptionMeter:
+    """Roy's Net Meter class for a direct home-consumption meter setup.
+
+    Unlike RoysNetMeter (which derives consumption from a net-flow meter
+    plus generation), this reads total home consumption directly and
+    derives the grid import/export by comparing it against generation.
+    """
+
+    def __init__(self, con_power_entity: str, con_energy_entity: str, gen_power_entity: str, gen_energy_entity: str, hass: HomeAssistant) -> None:
+        """Initialize."""
+        self.con_power_entity = con_power_entity
+        self.con_energy_entity = con_energy_entity
+        self.gen_power_entity = gen_power_entity
+        self.gen_energy_entity = gen_energy_entity
+        self.hass = hass
+        self.loop = hass.loop
+
+        self.old_state = {}
+        self.old_state['energy'] = {}
+        self.old_state['energy']['consumption'] = 0
+        self.old_state['energy']['generation'] = 0
+        self.old_state['energy']['import'] = 0
+        self.old_state['energy']['export'] = 0
+
+        self.new_state = {}
+        self.new_state['sensors'] = {}
+        self.new_state['sensors']['consumption_energy'] = 0
+        self.new_state['sensors']['import_energy'] = 0
+        self.new_state['sensors']['export_energy'] = 0
+        self.new_state['sensors']['consumption_power'] = 0
+        self.new_state['sensors']['import_power'] = 0
+        self.new_state['sensors']['export_power'] = 0
+        self.new_state['sensors']['grid_power'] = 0
+
+    async def authenticate(self) -> bool:
+        """Test if we can get current states."""
+        try:
+            if self.hass.states.get(self.con_power_entity) and self.hass.states.get(self.con_energy_entity) and self.hass.states.get(self.gen_power_entity) and self.hass.states.get(self.gen_energy_entity):
+                self.old_state['energy']['consumption'] = parse_sensor_state(self.hass.states.get(self.con_energy_entity))
+                self.old_state['energy']['generation'] = parse_sensor_state(self.hass.states.get(self.gen_energy_entity))
+                return True
+        except Exception as e:
+            _LOGGER.fatal("Failed: %s", str(e))
+            raise ConfigEntryNotReady
+
+    async def perform_calculations(self) -> None:
+        """Perform calculations to store new states."""
+        con_power = parse_sensor_state(self.hass.states.get(self.con_power_entity))
+        gen_power = parse_sensor_state(self.hass.states.get(self.gen_power_entity))
+        con_energy = parse_sensor_state(self.hass.states.get(self.con_energy_entity))
+        gen_energy = parse_sensor_state(self.hass.states.get(self.gen_energy_entity))
+
+        # Positive grid_power means importing, negative means exporting.
+        grid_power = con_power - gen_power
+
+        self.new_state['sensors']['consumption_power'] = con_power
+        self.new_state['sensors']['grid_power'] = grid_power
+        self.new_state['sensors']['import_power'] = max(grid_power, 0)
+        self.new_state['sensors']['export_power'] = max(-grid_power, 0)
+
+        delta_consumption = con_energy - self.old_state['energy']['consumption']
+        delta_generation = gen_energy - self.old_state['energy']['generation']
+        net_delta = delta_consumption - delta_generation
+
+        if net_delta > 0:
+            self.old_state['energy']['import'] += net_delta
+        else:
+            self.old_state['energy']['export'] += -net_delta
+
+        self.old_state['energy']['consumption'] = con_energy
+        self.old_state['energy']['generation'] = gen_energy
+
+        self.new_state['sensors']['consumption_energy'] = con_energy
+        self.new_state['sensors']['import_energy'] = self.old_state['energy']['import']
+        self.new_state['sensors']['export_energy'] = self.old_state['energy']['export']
 
 
 @dataclass

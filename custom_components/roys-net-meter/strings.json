@@ -3,9 +3,20 @@
     "step": {
       "user": {
         "title": "Set up Roy's Net Meter",
-        "description": "Select the entities from your net meter, CT clamps, and inverter that this integration needs. See the README for the full explanation of each.",
+        "description": "Choose which kind of meter you have. See the README for the full explanation of each option.",
         "data": {
           "name": "Name",
+          "meter_type": "Meter type"
+        },
+        "data_description": {
+          "name": "A friendly name for this setup.",
+          "meter_type": "A net grid meter reports the net import/export flow through your grid connection. A consumption meter (e.g. an RCBO/breaker with built-in metering) reports your home's total consumption directly."
+        }
+      },
+      "grid_meter": {
+        "title": "Net grid meter entities",
+        "description": "Select the entities from your net meter, CT clamps, and inverter that this integration needs.",
+        "data": {
           "gen_amp_entity": "Generation current sensor",
           "con_amp_entity": "Consumption current sensor",
           "flow_power_entity": "Net meter power flow sensor",
@@ -14,11 +25,26 @@
           "gen_energy_entity": "Generation energy sensor"
         },
         "data_description": {
-          "name": "A friendly name for this net meter setup.",
           "gen_amp_entity": "The sensor reporting your solar inverter's AC output current (A). Compared against the consumption current sensor to decide whether you're importing or exporting.",
           "con_amp_entity": "The sensor reporting the amperage (A) of your home's main incoming line, typically from a CT clamp.",
           "flow_power_entity": "The net real power (W) reported by your net meter, e.g. an ESPHome Home Assistant Glow device.",
           "flow_energy_entity": "The net real energy (kWh) reported by the same net meter.",
+          "gen_power_entity": "Your solar inverter's AC output power (W).",
+          "gen_energy_entity": "Your solar inverter's total generated energy (kWh)."
+        }
+      },
+      "consumption_meter": {
+        "title": "Consumption meter entities",
+        "description": "Select the entities from your consumption meter and inverter that this integration needs.",
+        "data": {
+          "con_power_entity": "Consumption power sensor",
+          "con_energy_entity": "Consumption energy sensor",
+          "gen_power_entity": "Generation power sensor",
+          "gen_energy_entity": "Generation energy sensor"
+        },
+        "data_description": {
+          "con_power_entity": "The sensor reporting your home's total real-time power consumption (W), e.g. from a metering RCBO/breaker.",
+          "con_energy_entity": "The sensor reporting your home's total accumulated energy consumption (kWh), from the same device.",
           "gen_power_entity": "Your solar inverter's AC output power (W).",
           "gen_energy_entity": "Your solar inverter's total generated energy (kWh)."
         }
