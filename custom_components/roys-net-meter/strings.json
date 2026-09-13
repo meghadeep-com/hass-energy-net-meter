@@ -34,7 +34,8 @@
           "flow_power_entity": "Net meter power flow sensor",
           "flow_energy_entity": "Net meter energy flow sensor",
           "gen_power_entity": "Generation power sensor",
-          "gen_energy_entity": "Generation energy sensor"
+          "gen_energy_entity": "Generation energy sensor",
+          "max_power": "Maximum plausible power (W)"
         },
         "data_description": {
           "gen_amp_entity": "The sensor reporting your solar inverter's AC output current (A). Compared against the consumption current sensor to decide whether you're importing or exporting.",
@@ -42,7 +43,8 @@
           "flow_power_entity": "The net real power (W) reported by your net meter, e.g. an ESPHome Home Assistant Glow device.",
           "flow_energy_entity": "The net real energy (kWh) reported by the same net meter.",
           "gen_power_entity": "Your solar inverter's AC output power (W).",
-          "gen_energy_entity": "Your solar inverter's total generated energy (kWh)."
+          "gen_energy_entity": "Your solar inverter's total generated energy (kWh).",
+          "max_power": "A power reading above this (or negative) is treated as a bad sample and replaced with the last known-good value, rather than corrupting the running energy totals. This is different from the sensor being unavailable, which still shows up as such. Set above your highest real load."
         }
       },
       "consumption_meter": {
@@ -52,13 +54,15 @@
           "con_power_entity": "Consumption power sensor",
           "con_energy_entity": "Consumption energy sensor",
           "gen_power_entity": "Generation power sensor",
-          "gen_energy_entity": "Generation energy sensor"
+          "gen_energy_entity": "Generation energy sensor",
+          "max_power": "Maximum plausible power (W)"
         },
         "data_description": {
           "con_power_entity": "The sensor reporting your home's total real-time power consumption (W), e.g. from a metering RCBO/breaker.",
           "con_energy_entity": "The sensor reporting your home's total accumulated energy consumption (kWh), from the same device.",
           "gen_power_entity": "Your solar inverter's AC output power (W).",
-          "gen_energy_entity": "Your solar inverter's total generated energy (kWh)."
+          "gen_energy_entity": "Your solar inverter's total generated energy (kWh).",
+          "max_power": "A power reading above this (or negative) is treated as a bad sample and replaced with the last known-good value, rather than corrupting the running energy totals. This is different from the sensor being unavailable, which still shows up as such. Set above your highest real load."
         }
       }
     },

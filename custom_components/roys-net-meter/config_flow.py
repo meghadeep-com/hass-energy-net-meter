@@ -35,11 +35,19 @@ from .const import (
     GEN_POWER_ENTITY,
     GEN_ENERGY_ENTITY,
     CON_POWER_ENTITY,
-    CON_ENERGY_ENTITY
+    CON_ENERGY_ENTITY,
+    MAX_POWER,
+    DEFAULT_MAX_POWER,
 )
 
 SENSOR_SELECTOR = selector.EntitySelector(
     selector.EntitySelectorConfig(domain="sensor")
+)
+
+MAX_POWER_SELECTOR = selector.NumberSelector(
+    selector.NumberSelectorConfig(
+        min=0, mode=selector.NumberSelectorMode.BOX, unit_of_measurement="W"
+    )
 )
 
 METER_TYPE_SELECTOR = selector.SelectSelector(
@@ -135,6 +143,7 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input[GEN_POWER_ENTITY],
                 user_input[GEN_ENERGY_ENTITY],
                 self.hass,
+                max_power=user_input.get(MAX_POWER, DEFAULT_MAX_POWER),
             )
 
             if await hub.authenticate():
@@ -171,6 +180,10 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
                         GEN_ENERGY_ENTITY,
                         default=user_input.get(GEN_ENERGY_ENTITY, current.get(GEN_ENERGY_ENTITY, vol.UNDEFINED)),
                     ): SENSOR_SELECTOR,
+                    vol.Optional(
+                        MAX_POWER,
+                        default=user_input.get(MAX_POWER, current.get(MAX_POWER, DEFAULT_MAX_POWER)),
+                    ): MAX_POWER_SELECTOR,
                 }
             ),
             errors=errors,
@@ -190,6 +203,7 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input[GEN_POWER_ENTITY],
                 user_input[GEN_ENERGY_ENTITY],
                 self.hass,
+                max_power=user_input.get(MAX_POWER, DEFAULT_MAX_POWER),
             )
 
             if await hub.authenticate():
@@ -218,6 +232,10 @@ class RoysNetMeter_flow_handler(config_entries.ConfigFlow, domain=DOMAIN):
                         GEN_ENERGY_ENTITY,
                         default=user_input.get(GEN_ENERGY_ENTITY, current.get(GEN_ENERGY_ENTITY, vol.UNDEFINED)),
                     ): SENSOR_SELECTOR,
+                    vol.Optional(
+                        MAX_POWER,
+                        default=user_input.get(MAX_POWER, current.get(MAX_POWER, DEFAULT_MAX_POWER)),
+                    ): MAX_POWER_SELECTOR,
                 }
             ),
             errors=errors,

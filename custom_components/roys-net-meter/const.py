@@ -35,6 +35,8 @@ CON_ENERGY_ENTITY: Final = 'con_energy_entity'
 METER_TYPE: Final = 'meter_type'
 METER_TYPE_GRID: Final = 'grid'
 METER_TYPE_CONSUMPTION: Final = 'consumption'
+MAX_POWER: Final = 'max_power'
+DEFAULT_MAX_POWER: Final = 20000
 
 def parse_sensor_state(state):
     """Parse the state of a sensor into open/closed/unavailable/unknown."""
@@ -48,12 +50,41 @@ def parse_sensor_state(state):
         except:
             raise ConfigEntryNotReady
 
+def validate_power(name: str, value: float, max_power: float, last_good: dict) -> float:
+    """Replace an implausible power reading with the last known-good one.
+
+    Same job as the manual "hold last good value" template sensors some
+    users wire in front of a flaky power meter: a negative or too-large
+    reading falls back to whatever this same field last read as valid,
+    instead of being used as-is. This is deliberately NOT the same as the
+    sensor being genuinely unavailable/unknown (parse_sensor_state already
+    raises ConfigEntryNotReady for that, which the caller should let
+    propagate) - here the sensor is answering, just with a number that
+    can't be real, so we keep going rather than failing the whole update.
+
+    Raises ConfigEntryNotReady only if there's no known-good value yet to
+    fall back to (e.g. right at startup) - genuinely nothing better to do
+    at that point.
+    """
+    if value < 0 or value > max_power:
+        if name not in last_good:
+            raise ConfigEntryNotReady(
+                f"implausible {name} reading: {value}W (limit is {max_power}W), and no known-good value yet"
+            )
+        _LOGGER.warning(
+            "Ignoring implausible %s reading: %sW (limit is %sW); using last known-good value %sW",
+            name, value, max_power, last_good[name],
+        )
+        return last_good[name]
+    last_good[name] = value
+    return value
+
 class RoysNetMeter:
     """Roy's Net Meter class to check configuration and get related entity info.
 
     """
 
-    def __init__(self, gen_amp_entity: str, con_amp_entity: str, flow_power_entity: str, flow_energy_entity: str, gen_power_entity: str, gen_energy_entity: str, hass: HomeAssistant) -> None:
+    def __init__(self, gen_amp_entity: str, con_amp_entity: str, flow_power_entity: str, flow_energy_entity: str, gen_power_entity: str, gen_energy_entity: str, hass: HomeAssistant, max_power: float = DEFAULT_MAX_POWER) -> None:
         """Initialize."""
         self.gen_amp_entity = gen_amp_entity
         self.con_amp_entity = con_amp_entity
@@ -64,6 +95,8 @@ class RoysNetMeter:
         self.hass = hass
         self.loop = hass.loop
         self.ready = False
+        self.max_power = max_power
+        self._last_good_power = {}
 
         self.tracked_entities = [
             gen_amp_entity,
@@ -129,8 +162,8 @@ class RoysNetMeter:
             # Generation is more than consumption
             if gen_amp > con_amp:
                 # Calculate power
-                gen_power = parse_sensor_state(self.hass.states.get(self.gen_power_entity))
-                flow_power = -1*parse_sensor_state(self.hass.states.get(self.flow_power_entity))
+                gen_power = validate_power('gen_power', parse_sensor_state(self.hass.states.get(self.gen_power_entity)), self.max_power, self._last_good_power)
+                flow_power = -1*validate_power('flow_power', parse_sensor_state(self.hass.states.get(self.flow_power_entity)), self.max_power, self._last_good_power)
                 self.new_state['sensors']['consumption_power'] = gen_power + flow_power
                 self.new_state['sensors']['import_power'] = 0
                 self.new_state['sensors']['export_power'] = -1*flow_power
@@ -157,8 +190,8 @@ class RoysNetMeter:
             # Consumption is more than generation
             else:
                 # Calculate power
-                gen_power = parse_sensor_state(self.hass.states.get(self.gen_power_entity))
-                flow_power = parse_sensor_state(self.hass.states.get(self.flow_power_entity))
+                gen_power = validate_power('gen_power', parse_sensor_state(self.hass.states.get(self.gen_power_entity)), self.max_power, self._last_good_power)
+                flow_power = validate_power('flow_power', parse_sensor_state(self.hass.states.get(self.flow_power_entity)), self.max_power, self._last_good_power)
                 self.new_state['sensors']['consumption_power'] = gen_power + flow_power
                 self.new_state['sensors']['import_power'] = flow_power
                 self.new_state['sensors']['export_power'] = 0
@@ -192,7 +225,7 @@ class RoysConsumptionMeter:
     derives the grid import/export by comparing it against generation.
     """
 
-    def __init__(self, con_power_entity: str, con_energy_entity: str, gen_power_entity: str, gen_energy_entity: str, hass: HomeAssistant) -> None:
+    def __init__(self, con_power_entity: str, con_energy_entity: str, gen_power_entity: str, gen_energy_entity: str, hass: HomeAssistant, max_power: float = DEFAULT_MAX_POWER) -> None:
         """Initialize."""
         self.con_power_entity = con_power_entity
         self.con_energy_entity = con_energy_entity
@@ -201,6 +234,8 @@ class RoysConsumptionMeter:
         self.hass = hass
         self.loop = hass.loop
         self.ready = False
+        self.max_power = max_power
+        self._last_good_power = {}
 
         self.tracked_entities = [
             con_power_entity,
@@ -248,8 +283,8 @@ class RoysConsumptionMeter:
 
     async def perform_calculations(self) -> None:
         """Perform calculations to store new states."""
-        con_power = parse_sensor_state(self.hass.states.get(self.con_power_entity))
-        gen_power = parse_sensor_state(self.hass.states.get(self.gen_power_entity))
+        con_power = validate_power('con_power', parse_sensor_state(self.hass.states.get(self.con_power_entity)), self.max_power, self._last_good_power)
+        gen_power = validate_power('gen_power', parse_sensor_state(self.hass.states.get(self.gen_power_entity)), self.max_power, self._last_good_power)
         con_energy = parse_sensor_state(self.hass.states.get(self.con_energy_entity))
         gen_energy = parse_sensor_state(self.hass.states.get(self.gen_energy_entity))
 

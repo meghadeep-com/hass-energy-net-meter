@@ -44,7 +44,9 @@ from .const import (
     GEN_POWER_ENTITY,
     GEN_ENERGY_ENTITY,
     CON_POWER_ENTITY,
-    CON_ENERGY_ENTITY
+    CON_ENERGY_ENTITY,
+    MAX_POWER,
+    DEFAULT_MAX_POWER,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -96,6 +98,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Config entries created before meter_type existed are all grid meters.
     meter_type = entry.data.get(METER_TYPE, METER_TYPE_GRID)
 
+    max_power = entry.data.get(MAX_POWER, DEFAULT_MAX_POWER)
+
     if meter_type == METER_TYPE_CONSUMPTION:
         api = RoysConsumptionMeter(
             entry.data[CON_POWER_ENTITY],
@@ -103,6 +107,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry.data[GEN_POWER_ENTITY],
             entry.data[GEN_ENERGY_ENTITY],
             hass,
+            max_power=max_power,
         )
     else:
         api = RoysNetMeter(
@@ -113,6 +118,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry.data[GEN_POWER_ENTITY],
             entry.data[GEN_ENERGY_ENTITY],
             hass,
+            max_power=max_power,
         )
 
     if entry.unique_id is None:
