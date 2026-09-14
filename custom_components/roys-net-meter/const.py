@@ -14,6 +14,7 @@ from homeassistant.components.sensor import SensorEntityDescription, SensorDevic
 from homeassistant.core import HomeAssistant
 from homeassistant.const import UnitOfEnergy, UnitOfPower, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.helpers.event import async_track_state_change_event, async_track_template_result
+from homeassistant.util import dt as dt_util
 from binascii import a2b_base64
 from json import loads, dumps
 
@@ -50,23 +51,29 @@ def parse_sensor_state(state):
         except:
             raise ConfigEntryNotReady
 
-def validate_power(name: str, value: float, max_power: float, last_good: dict) -> float:
+def validate_power(name: str, value: float, max_power: float, last_good: dict, signed: bool = False) -> float:
     """Replace an implausible power reading with the last known-good one.
 
     Same job as the manual "hold last good value" template sensors some
-    users wire in front of a flaky power meter: a negative or too-large
-    reading falls back to whatever this same field last read as valid,
-    instead of being used as-is. This is deliberately NOT the same as the
-    sensor being genuinely unavailable/unknown (parse_sensor_state already
-    raises ConfigEntryNotReady for that, which the caller should let
-    propagate) - here the sensor is answering, just with a number that
-    can't be real, so we keep going rather than failing the whole update.
+    users wire in front of a flaky power meter: a too-large (or, for an
+    unsigned reading, negative) value falls back to whatever this same
+    field last read as valid, instead of being used as-is. This is
+    deliberately NOT the same as the sensor being genuinely
+    unavailable/unknown (parse_sensor_state already raises
+    ConfigEntryNotReady for that, which the caller should let propagate)
+    - here the sensor is answering, just with a number that can't be
+    real, so we keep going rather than failing the whole update.
+
+    Pass signed=True for a field where negative is a legitimate reading
+    (e.g. a net-flow meter that reports import as positive and export as
+    negative) - only the magnitude is then checked against max_power.
 
     Raises ConfigEntryNotReady only if there's no known-good value yet to
     fall back to (e.g. right at startup) - genuinely nothing better to do
     at that point.
     """
-    if value < 0 or value > max_power:
+    implausible = abs(value) > max_power if signed else (value < 0 or value > max_power)
+    if implausible:
         if name not in last_good:
             raise ConfigEntryNotReady(
                 f"implausible {name} reading: {value}W (limit is {max_power}W), and no known-good value yet"
@@ -163,7 +170,7 @@ class RoysNetMeter:
             if gen_amp > con_amp:
                 # Calculate power
                 gen_power = validate_power('gen_power', parse_sensor_state(self.hass.states.get(self.gen_power_entity)), self.max_power, self._last_good_power)
-                flow_power = -1*validate_power('flow_power', parse_sensor_state(self.hass.states.get(self.flow_power_entity)), self.max_power, self._last_good_power)
+                flow_power = -1*validate_power('flow_power', parse_sensor_state(self.hass.states.get(self.flow_power_entity)), self.max_power, self._last_good_power, signed=True)
                 self.new_state['sensors']['consumption_power'] = gen_power + flow_power
                 self.new_state['sensors']['import_power'] = 0
                 self.new_state['sensors']['export_power'] = -1*flow_power
@@ -191,7 +198,7 @@ class RoysNetMeter:
             else:
                 # Calculate power
                 gen_power = validate_power('gen_power', parse_sensor_state(self.hass.states.get(self.gen_power_entity)), self.max_power, self._last_good_power)
-                flow_power = validate_power('flow_power', parse_sensor_state(self.hass.states.get(self.flow_power_entity)), self.max_power, self._last_good_power)
+                flow_power = validate_power('flow_power', parse_sensor_state(self.hass.states.get(self.flow_power_entity)), self.max_power, self._last_good_power, signed=True)
                 self.new_state['sensors']['consumption_power'] = gen_power + flow_power
                 self.new_state['sensors']['import_power'] = flow_power
                 self.new_state['sensors']['export_power'] = 0
@@ -251,6 +258,7 @@ class RoysConsumptionMeter:
         self.old_state['energy']['consumption_total'] = 0
         self.old_state['energy']['import'] = 0
         self.old_state['energy']['export'] = 0
+        self.old_state['last_update'] = None
 
         self.new_state = {}
         self.new_state['sensors'] = {}
@@ -279,6 +287,7 @@ class RoysConsumptionMeter:
             self.old_state['energy']['generation'] = parse_sensor_state(self.hass.states.get(self.gen_energy_entity))
         except ConfigEntryNotReady:
             return False
+        self.old_state['last_update'] = dt_util.utcnow()
         return True
 
     async def perform_calculations(self) -> None:
@@ -297,17 +306,29 @@ class RoysConsumptionMeter:
         self.new_state['sensors']['export_power'] = max(-grid_power, 0)
 
         delta_consumption = con_energy - self.old_state['energy']['consumption']
-        delta_generation = gen_energy - self.old_state['energy']['generation']
-        net_delta = delta_consumption - delta_generation
-
         self.old_state['energy']['consumption_total'] += delta_consumption
-        if net_delta > 0:
-            self.old_state['energy']['import'] += net_delta
-        else:
-            self.old_state['energy']['export'] += -net_delta
-
         self.old_state['energy']['consumption'] = con_energy
         self.old_state['energy']['generation'] = gen_energy
+
+        # Import/export are integrated from grid_power over elapsed time,
+        # not diffed from con_energy/gen_energy directly: those two
+        # lifetime counters tick at different, uncorrelated resolutions
+        # (e.g. the inverter's generation total may only advance every
+        # 0.1 kWh while the RCBO's consumption total advances every
+        # 0.01 kWh), so a generation tick routinely lags a consumption
+        # tick that happened at the same moment. Netting the raw counter
+        # deltas then misreports which way the grid is flowing during
+        # that window, even though grid_power (from the two *_power
+        # sensors, which update far more often) already knows the real
+        # direction right now.
+        now = dt_util.utcnow()
+        elapsed_hours = (now - self.old_state['last_update']).total_seconds() / 3600
+        self.old_state['last_update'] = now
+        grid_energy_delta = grid_power * elapsed_hours / 1000
+        if grid_energy_delta > 0:
+            self.old_state['energy']['import'] += grid_energy_delta
+        else:
+            self.old_state['energy']['export'] += -grid_energy_delta
 
         self.new_state['sensors']['consumption_energy'] = self.old_state['energy']['consumption_total']
         self.new_state['sensors']['import_energy'] = self.old_state['energy']['import']
