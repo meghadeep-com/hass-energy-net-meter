@@ -259,6 +259,16 @@ class RoysConsumptionMeter:
         self.old_state['energy']['import'] = 0
         self.old_state['energy']['export'] = 0
         self.old_state['last_update'] = None
+        # Checkpoint the power-integrated import/export totals are
+        # periodically reconciled against, once gen_energy (the slower of
+        # the two lifetime counters) advances enough to give a trustworthy
+        # net delta - see perform_calculations.
+        self.old_state['energy']['reconcile'] = {
+            'consumption': 0,
+            'generation': 0,
+            'import': 0,
+            'export': 0,
+        }
 
         self.new_state = {}
         self.new_state['sensors'] = {}
@@ -288,6 +298,8 @@ class RoysConsumptionMeter:
         except ConfigEntryNotReady:
             return False
         self.old_state['last_update'] = dt_util.utcnow()
+        self.old_state['energy']['reconcile']['consumption'] = self.old_state['energy']['consumption']
+        self.old_state['energy']['reconcile']['generation'] = self.old_state['energy']['generation']
         return True
 
     async def perform_calculations(self) -> None:
@@ -329,6 +341,29 @@ class RoysConsumptionMeter:
             self.old_state['energy']['import'] += grid_energy_delta
         else:
             self.old_state['energy']['export'] += -grid_energy_delta
+
+        # Power-integration above drifts from the meters' true net exchange
+        # over time (it only sees power at each push, not what happened
+        # between pushes). Whenever gen_energy - the slower-ticking of the
+        # two counters - advances, we get a trustworthy net delta straight
+        # from the meters for the whole window since the last checkpoint;
+        # true it up by crediting whichever side we under-counted. Only
+        # ever adds to import or export, never subtracts, so both stay
+        # strictly increasing (required for state_class total_increasing -
+        # a decrease reads to HA as a meter reset, not a correction).
+        reconcile = self.old_state['energy']['reconcile']
+        if gen_energy != reconcile['generation']:
+            raw_net = (con_energy - reconcile['consumption']) - (gen_energy - reconcile['generation'])
+            our_net = (self.old_state['energy']['import'] - reconcile['import']) - (self.old_state['energy']['export'] - reconcile['export'])
+            drift = our_net - raw_net
+            if drift > 0:
+                self.old_state['energy']['export'] += drift
+            elif drift < 0:
+                self.old_state['energy']['import'] += -drift
+            reconcile['consumption'] = con_energy
+            reconcile['generation'] = gen_energy
+            reconcile['import'] = self.old_state['energy']['import']
+            reconcile['export'] = self.old_state['energy']['export']
 
         self.new_state['sensors']['consumption_energy'] = self.old_state['energy']['consumption_total']
         self.new_state['sensors']['import_energy'] = self.old_state['energy']['import']
